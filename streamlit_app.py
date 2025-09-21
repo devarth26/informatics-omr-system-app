@@ -387,21 +387,28 @@ class OMRProcessor:
         self.bubbles_per_question = 4
 
     def detect_circles(self, image):
-        """Detect circles using HoughCircles with multiple parameter sets"""
+        """Detect circles using HoughCircles with enhanced parameter sets"""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (9, 9), 2)
 
-        # Multiple parameter sets for robust detection
+        # Enhanced preprocessing
+        blurred = cv2.GaussianBlur(gray, (7, 7), 1.5)
+
+        # Apply histogram equalization for better contrast
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        enhanced = clahe.apply(blurred)
+
+        # Enhanced parameter sets for better detection
         param_sets = [
-            {'dp': 1.2, 'min_dist': 30, 'param1': 50, 'param2': 30, 'min_radius': 10, 'max_radius': 25},
-            {'dp': 1.5, 'min_dist': 25, 'param1': 60, 'param2': 35, 'min_radius': 12, 'max_radius': 30},
-            {'dp': 1.0, 'min_dist': 35, 'param1': 40, 'param2': 25, 'min_radius': 8, 'max_radius': 28}
+            {'dp': 1.0, 'min_dist': 20, 'param1': 40, 'param2': 20, 'min_radius': 8, 'max_radius': 30},
+            {'dp': 1.2, 'min_dist': 25, 'param1': 50, 'param2': 25, 'min_radius': 10, 'max_radius': 28},
+            {'dp': 1.5, 'min_dist': 22, 'param1': 60, 'param2': 30, 'min_radius': 12, 'max_radius': 32},
+            {'dp': 0.8, 'min_dist': 18, 'param1': 35, 'param2': 18, 'min_radius': 6, 'max_radius': 35}
         ]
 
         all_circles = []
         for params in param_sets:
             circles = cv2.HoughCircles(
-                blurred, cv2.HOUGH_GRADIENT,
+                enhanced, cv2.HOUGH_GRADIENT,
                 dp=params['dp'],
                 minDist=params['min_dist'],
                 param1=params['param1'],
@@ -414,13 +421,13 @@ class OMRProcessor:
                 circles = np.round(circles[0, :]).astype("int")
                 all_circles.extend(circles)
 
-        # Remove duplicates
+        # Remove duplicates with smaller threshold
         if all_circles:
-            all_circles = self.remove_duplicate_circles(all_circles)
+            all_circles = self.remove_duplicate_circles(all_circles, min_distance=12)
 
         return all_circles
 
-    def remove_duplicate_circles(self, circles, min_distance=15):
+    def remove_duplicate_circles(self, circles, min_distance=12):
         """Remove duplicate circles that are too close to each other"""
         if len(circles) <= 1:
             return circles
@@ -494,14 +501,18 @@ class OMRProcessor:
         return organized_grid
 
     def classify_bubbles(self, image, bubbles):
-        """Classify bubbles as filled or empty using statistical analysis"""
+        """Classify bubbles as filled or empty using enhanced statistical analysis"""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         classifications = []
+
+        # Calculate global statistics for adaptive thresholding
+        global_mean = np.mean(gray)
+        global_std = np.std(gray)
 
         for x, y, r in bubbles:
             # Create mask for bubble region
             mask = np.zeros(gray.shape, dtype=np.uint8)
-            cv2.circle(mask, (x, y), max(1, r - 2), 255, -1)
+            cv2.circle(mask, (x, y), max(1, r - 1), 255, -1)
 
             # Extract bubble pixels
             bubble_pixels = gray[mask == 255]
@@ -511,13 +522,42 @@ class OMRProcessor:
                 min_intensity = np.min(bubble_pixels)
                 std_intensity = np.std(bubble_pixels)
 
-                # Enhanced classification criteria
-                is_filled = (
-                    mean_intensity < 120 and
-                    min_intensity < 100 and
-                    std_intensity < 40 and
-                    mean_intensity < (np.mean(gray) * 0.8)  # Relative to image background
+                # Extract surrounding area for comparison
+                surrounding_mask = np.zeros(gray.shape, dtype=np.uint8)
+                cv2.circle(surrounding_mask, (x, y), r + 3, 255, -1)
+                cv2.circle(surrounding_mask, (x, y), r - 1, 0, -1)
+                surrounding_pixels = gray[surrounding_mask == 255]
+                surrounding_mean = np.mean(surrounding_pixels) if len(surrounding_pixels) > 0 else global_mean
+
+                # Balanced classification based on actual image analysis
+                # Key findings: filled bubbles ~25-45 intensity, unfilled ~155-195
+
+                ratio_to_surrounding = mean_intensity / surrounding_mean if surrounding_mean > 0 else 1.0
+
+                # Multi-tier classification approach
+                # Tier 1: Definitely filled (very dark bubbles)
+                definitely_filled = (
+                    mean_intensity < 60 and
+                    ratio_to_surrounding < 0.4
                 )
+
+                # Tier 2: Probably filled (moderately dark with good ratio)
+                probably_filled = (
+                    mean_intensity < 100 and
+                    ratio_to_surrounding < 0.7 and
+                    min_intensity < 80
+                )
+
+                # Tier 3: Possibly filled (based on multiple weak indicators)
+                possibly_filled = (
+                    mean_intensity < 140 and
+                    ratio_to_surrounding < 0.85 and
+                    min_intensity < 100 and
+                    mean_intensity < (global_mean * 0.8)
+                )
+
+                # Final decision: filled if any tier matches
+                is_filled = definitely_filled or probably_filled or possibly_filled
 
                 classifications.append(is_filled)
             else:
