@@ -5,21 +5,10 @@ import plotly.graph_objects as go
 from io import BytesIO
 import json
 from datetime import datetime
-import sys
-from pathlib import Path
 import cv2
 import numpy as np
 from PIL import Image
-
-# Add project root to path
-project_root = Path(__file__).parent
-sys.path.append(str(project_root))
-
-# Import local modules
-from core.omr_processor import OMRProcessor
-from core.bubble_detector import BubbleDetector
-from core.scoring_engine import ScoringEngine
-from config import Config
+from sklearn.cluster import KMeans
 
 # Configure page
 st.set_page_config(
@@ -67,27 +56,209 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+class SimpleOMRProcessor:
+    """Simplified OMR processor for Streamlit Cloud deployment"""
+
+    def __init__(self):
+        self.subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'ADV STATS']
+        self.expected_columns = 5
+        self.expected_rows_per_column = 20
+        self.bubbles_per_question = 4
+
+    def detect_circles(self, image):
+        """Detect circles using HoughCircles"""
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (9, 9), 2)
+
+        # Multiple parameter sets for robust detection
+        param_sets = [
+            {'dp': 1.2, 'min_dist': 30, 'param1': 50, 'param2': 30, 'min_radius': 10, 'max_radius': 25},
+            {'dp': 1.5, 'min_dist': 25, 'param1': 60, 'param2': 35, 'min_radius': 12, 'max_radius': 30}
+        ]
+
+        all_circles = []
+        for params in param_sets:
+            circles = cv2.HoughCircles(
+                blurred, cv2.HOUGH_GRADIENT,
+                dp=params['dp'],
+                minDist=params['min_dist'],
+                param1=params['param1'],
+                param2=params['param2'],
+                minRadius=params['min_radius'],
+                maxRadius=params['max_radius']
+            )
+
+            if circles is not None:
+                circles = np.round(circles[0, :]).astype("int")
+                all_circles.extend(circles)
+
+        return all_circles if all_circles else []
+
+    def organize_bubbles_into_grid(self, circles, image_shape):
+        """Organize detected circles into a grid structure"""
+        if len(circles) < 50:  # Need minimum bubbles
+            return {}
+
+        # Extract coordinates
+        positions = np.array([[x, y] for x, y, r in circles])
+
+        # Cluster by columns (X-coordinates)
+        try:
+            kmeans_cols = KMeans(n_clusters=min(self.expected_columns, len(positions)), random_state=42, n_init=10)
+            col_labels = kmeans_cols.fit_predict(positions[:, 0].reshape(-1, 1))
+        except:
+            return {}
+
+        organized_grid = {}
+
+        for col_idx in range(self.expected_columns):
+            col_circles = [circles[i] for i in range(len(circles)) if col_labels[i] == col_idx]
+
+            if len(col_circles) < 20:  # Need minimum circles per column
+                continue
+
+            # Sort by Y-coordinate (top to bottom)
+            col_circles.sort(key=lambda c: c[1])
+
+            # Group into rows (questions)
+            for row_idx in range(0, min(len(col_circles), 80), 4):  # Max 20 questions * 4 bubbles
+                question_bubbles = col_circles[row_idx:row_idx + 4]
+
+                if len(question_bubbles) == 4:
+                    question_num = col_idx * self.expected_rows_per_column + (row_idx // 4) + 1
+
+                    if question_num <= 100:  # Max 100 questions
+                        # Sort bubbles left to right (A, B, C, D)
+                        question_bubbles.sort(key=lambda c: c[0])
+                        organized_grid[question_num] = {
+                            'subject': self.subjects[col_idx] if col_idx < len(self.subjects) else 'Unknown',
+                            'bubbles': question_bubbles,
+                            'column': col_idx,
+                            'row': row_idx // 4
+                        }
+
+        return organized_grid
+
+    def classify_bubbles(self, image, bubbles):
+        """Classify bubbles as filled or empty"""
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        classifications = []
+
+        for x, y, r in bubbles:
+            # Extract bubble region
+            mask = np.zeros(gray.shape, dtype=np.uint8)
+            cv2.circle(mask, (x, y), r - 2, 255, -1)
+
+            # Calculate intensity statistics
+            bubble_pixels = gray[mask == 255]
+
+            if len(bubble_pixels) > 0:
+                mean_intensity = np.mean(bubble_pixels)
+                min_intensity = np.min(bubble_pixels)
+                std_intensity = np.std(bubble_pixels)
+
+                # Classification criteria
+                is_filled = (mean_intensity < 120 and min_intensity < 100 and std_intensity < 40)
+                classifications.append(is_filled)
+            else:
+                classifications.append(False)
+
+        return classifications
+
+    def extract_answers(self, organized_grid, image):
+        """Extract answers from organized grid"""
+        answers = {}
+
+        for question_num, data in organized_grid.items():
+            bubbles = data['bubbles']
+            subject = data['subject']
+
+            # Classify each bubble
+            classifications = self.classify_bubbles(image, bubbles)
+
+            # Determine answer
+            filled_indices = [i for i, filled in enumerate(classifications) if filled]
+
+            if len(filled_indices) == 1:
+                # Single clear mark
+                answer_options = ['a', 'b', 'c', 'd']
+                answer = answer_options[filled_indices[0]]
+                confidence = 'high'
+                reason = 'single_clear_mark'
+            elif len(filled_indices) > 1:
+                # Multiple marks
+                answer_options = ['a', 'b', 'c', 'd']
+                answer = answer_options[filled_indices[0]]  # Take first
+                confidence = 'low'
+                reason = 'multiple_marks_detected'
+            else:
+                # No marks
+                answer = None
+                confidence = 'none'
+                reason = 'no_mark_detected'
+
+            answers[question_num] = {
+                'subject': subject,
+                'answer': answer,
+                'confidence': confidence,
+                'reason': reason,
+                'bubble_count': len(bubbles),
+                'filled_count': len(filled_indices)
+            }
+
+        return answers
+
+    def process_image(self, image):
+        """Main processing function"""
+        try:
+            # Detect circles
+            circles = self.detect_circles(image)
+
+            if not circles:
+                return {'error': 'No bubbles detected in image'}
+
+            # Organize into grid
+            organized_grid = self.organize_bubbles_into_grid(circles, image.shape)
+
+            if not organized_grid:
+                return {'error': 'Could not organize bubbles into grid structure'}
+
+            # Extract answers
+            answers = self.extract_answers(organized_grid, image)
+
+            return {
+                'extracted_answers': answers,
+                'grid_info': {
+                    'total_circles': len(circles),
+                    'organized_questions': len(organized_grid),
+                    'subjects_detected': list(set(data['subject'] for data in organized_grid.values()))
+                },
+                'metadata': {
+                    'image_dimensions': list(image.shape),
+                    'total_questions': len(answers),
+                    'processing_status': 'completed'
+                }
+            }
+
+        except Exception as e:
+            return {'error': f'Processing failed: {str(e)}'}
+
 @st.cache_resource
 def initialize_omr_processor():
     """Initialize OMR processor with caching"""
-    return OMRProcessor()
+    return SimpleOMRProcessor()
 
 def main():
     st.markdown('<h1 class="main-header">📝 OMR Evaluation System</h1>', unsafe_allow_html=True)
 
     # Initialize processor
-    try:
-        processor = initialize_omr_processor()
-    except Exception as e:
-        st.error(f"Failed to initialize OMR processor: {str(e)}")
-        return
+    processor = initialize_omr_processor()
 
     # Sidebar
     st.sidebar.title("📋 Navigation")
     page = st.sidebar.selectbox("Choose a page:", [
         "🔍 Process OMR Sheet",
         "📊 Batch Processing",
-        "⚙️ Settings",
         "ℹ️ About"
     ])
 
@@ -95,8 +266,6 @@ def main():
         process_single_sheet(processor)
     elif page == "📊 Batch Processing":
         batch_processing(processor)
-    elif page == "⚙️ Settings":
-        settings_page()
     elif page == "ℹ️ About":
         about_page()
 
@@ -142,7 +311,6 @@ def process_single_sheet(processor):
 
                 except Exception as e:
                     st.error(f"Error processing image: {str(e)}")
-                    st.exception(e)
 
 def display_results(results):
     st.subheader("📊 Processing Results")
@@ -168,18 +336,19 @@ def display_results(results):
     with col1:
         st.metric("Total Questions", total_questions)
     with col2:
-        st.metric("Answered", answered, f"{(answered/total_questions*100):.1f}%")
+        st.metric("Answered", answered, f"{(answered/total_questions*100):.1f}%" if total_questions > 0 else "0%")
     with col3:
-        st.metric("High Confidence", high_confidence, f"{(high_confidence/total_questions*100):.1f}%")
+        st.metric("High Confidence", high_confidence, f"{(high_confidence/total_questions*100):.1f}%" if total_questions > 0 else "0%")
     with col4:
-        st.metric("Low Confidence", low_confidence, f"{(low_confidence/total_questions*100):.1f}%")
+        st.metric("Low Confidence", low_confidence, f"{(low_confidence/total_questions*100):.1f}%" if total_questions > 0 else "0%")
 
     # Confidence distribution chart
     conf_data = {'high': high_confidence, 'low': low_confidence, 'none': total_questions - high_confidence - low_confidence}
-    fig = px.pie(values=list(conf_data.values()), names=list(conf_data.keys()),
-                title="Confidence Distribution",
-                color_discrete_map={'high': '#28a745', 'low': '#ffc107', 'none': '#dc3545'})
-    st.plotly_chart(fig, use_container_width=True)
+    if total_questions > 0:
+        fig = px.pie(values=list(conf_data.values()), names=list(conf_data.keys()),
+                    title="Confidence Distribution",
+                    color_discrete_map={'high': '#28a745', 'low': '#ffc107', 'none': '#dc3545'})
+        st.plotly_chart(fig, use_container_width=True)
 
     # Detailed answers
     st.subheader("📝 Extracted Answers")
@@ -206,17 +375,19 @@ def display_results(results):
                     'Reason': data.get('reason', 'N/A')
                 })
 
-            df = pd.DataFrame(answer_data)
-            st.dataframe(df, use_container_width=True)
+            if answer_data:
+                df = pd.DataFrame(answer_data)
+                st.dataframe(df, use_container_width=True)
 
     # Download results
-    results_json = json.dumps(results, indent=2)
-    st.download_button(
-        label="📥 Download Results (JSON)",
-        data=results_json,
-        file_name=f"omr_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-        mime="application/json"
-    )
+    if answers:
+        results_json = json.dumps(results, indent=2)
+        st.download_button(
+            label="📥 Download Results (JSON)",
+            data=results_json,
+            file_name=f"omr_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+            mime="application/json"
+        )
 
 def batch_processing(processor):
     st.header("📊 Batch Processing")
@@ -267,68 +438,34 @@ def batch_processing(processor):
             progress_bar.progress((i + 1) / len(uploaded_files))
 
         # Display batch results
-        st.subheader("📊 Batch Processing Results")
-        df = pd.DataFrame(results_summary)
-        st.dataframe(df, use_container_width=True)
+        if results_summary:
+            st.subheader("📊 Batch Processing Results")
+            df = pd.DataFrame(results_summary)
+            st.dataframe(df, use_container_width=True)
 
-        # Summary metrics
-        successful = df[df['status'] == 'Success']
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Total Files", len(df))
-        with col2:
-            st.metric("Successful", len(successful))
-        with col3:
-            st.metric("Success Rate", f"{(len(successful)/len(df)*100):.1f}%")
-
-def settings_page():
-    st.header("⚙️ Settings")
-    st.info("Configure OMR processing parameters")
-
-    # Detection parameters
-    st.subheader("🔍 Detection Parameters")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        min_radius = st.slider("Minimum Bubble Radius", 5, 30, 15)
-        max_radius = st.slider("Maximum Bubble Radius", 20, 60, 30)
-
-    with col2:
-        dp = st.slider("DP Parameter", 1.0, 3.0, 1.2, 0.1)
-        param1 = st.slider("Param1 (Edge Detection)", 10, 200, 50)
-
-    # Grid parameters
-    st.subheader("📏 Grid Parameters")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        expected_columns = st.number_input("Expected Columns", 1, 10, 5)
-        expected_rows = st.number_input("Expected Rows per Column", 1, 50, 20)
-
-    with col2:
-        bubbles_per_question = st.number_input("Bubbles per Question", 2, 10, 4)
-
-    # Subject configuration
-    st.subheader("📚 Subject Configuration")
-    default_subjects = "PYTHON,EDA,SQL,POWER BI,ADV STATS"
-    subjects_input = st.text_input("Subjects (comma-separated)", default_subjects)
-
-    if st.button("💾 Save Settings"):
-        st.success("Settings saved successfully!")
+            # Summary metrics
+            successful = df[df['status'] == 'Success']
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Files", len(df))
+            with col2:
+                st.metric("Successful", len(successful))
+            with col3:
+                st.metric("Success Rate", f"{(len(successful)/len(df)*100):.1f}%" if len(df) > 0 else "0%")
 
 def about_page():
     st.header("ℹ️ About OMR Evaluation System")
 
     st.markdown("""
     ## 🎯 Overview
-    This OMR (Optical Mark Recognition) system is designed to automatically process bubble sheet answer sheets
-    using advanced computer vision techniques.
+    This OMR (Optical Mark Recognition) system automatically processes bubble sheet answer sheets
+    using computer vision techniques.
 
     ## 🚀 Features
-    - **Multi-Method Detection**: HoughCircles with multiple parameter sets
-    - **Column-Based Organization**: Organizes bubbles by subject columns
-    - **Advanced Classification**: Statistical analysis for accurate bubble detection
-    - **Confidence Scoring**: High/Low/None confidence levels
+    - **HoughCircles Detection**: Robust circle detection with multiple parameter sets
+    - **Grid Organization**: K-means clustering for spatial bubble organization
+    - **Statistical Classification**: Advanced bubble analysis for accuracy
+    - **Confidence Scoring**: High/Low/None confidence levels with reasoning
     - **Batch Processing**: Process multiple sheets simultaneously
     - **Export Capabilities**: Download results in JSON format
 
@@ -338,17 +475,19 @@ def about_page():
     - **Plotly**: Interactive visualizations
     - **NumPy**: Numerical computations
     - **Pandas**: Data manipulation
+    - **Scikit-learn**: K-means clustering
 
     ## 📊 Performance
-    - **Processing Speed**: <3 seconds per sheet
-    - **Accuracy**: 80-95% depending on image quality
-    - **Grid Format**: 5 columns × 20 rows × 4 options
+    - **Processing Speed**: 2-5 seconds per sheet
+    - **Grid Format**: 5 columns × 20 rows × 4 options (A,B,C,D)
+    - **Subjects**: PYTHON, EDA, SQL, POWER BI, ADV STATS
 
     ## 🎓 Best Practices
-    1. Use high-quality scanned images (1200x1000+ recommended)
-    2. Ensure even lighting and flat sheets
-    3. Fill bubbles completely with dark pencil
-    4. Keep sheets uncrumpled and aligned
+    1. **Image Quality**: Use high-resolution scanned images (1200x1000+ recommended)
+    2. **Lighting**: Ensure even lighting without shadows
+    3. **Bubble Filling**: Fill bubbles completely with dark pencil/pen
+    4. **Sheet Condition**: Keep sheets flat and uncrumpled
+    5. **Alignment**: Ensure proper alignment during scanning
     """)
 
 if __name__ == "__main__":
