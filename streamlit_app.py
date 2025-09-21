@@ -501,62 +501,16 @@ class OMRProcessor:
         return organized_grid
 
     def classify_bubbles(self, image, bubbles):
-        """Adaptive bubble classification that works across different image conditions"""
+        """Enhanced bubble classification using multiple detection methods"""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         classifications = []
 
-        # Step 1: Analyze ALL bubbles to understand this image's intensity distribution
-        all_bubble_intensities = []
-        all_bubble_ratios = []
+        # Global image statistics
         global_mean = np.mean(gray)
+        global_std = np.std(gray)
 
-        for x, y, r in bubbles:
-            mask = np.zeros(gray.shape, dtype=np.uint8)
-            cv2.circle(mask, (x, y), max(1, r - 1), 255, -1)
-            bubble_pixels = gray[mask == 255]
-
-            if len(bubble_pixels) > 0:
-                mean_intensity = np.mean(bubble_pixels)
-                all_bubble_intensities.append(mean_intensity)
-
-                # Get surrounding for ratio
-                surrounding_mask = np.zeros(gray.shape, dtype=np.uint8)
-                cv2.circle(surrounding_mask, (x, y), r + 3, 255, -1)
-                cv2.circle(surrounding_mask, (x, y), r - 1, 0, -1)
-                surrounding_pixels = gray[surrounding_mask == 255]
-                surrounding_mean = np.mean(surrounding_pixels) if len(surrounding_pixels) > 0 else global_mean
-
-                if surrounding_mean > 0:
-                    all_bubble_ratios.append(mean_intensity / surrounding_mean)
-
-        # Step 2: Calculate adaptive thresholds based on this image's data
-        if len(all_bubble_intensities) > 10:  # Need sufficient data
-            intensity_percentiles = np.percentile(all_bubble_intensities, [10, 20, 30, 40, 50])
-            ratio_percentiles = np.percentile(all_bubble_ratios, [10, 20, 30, 40, 50]) if all_bubble_ratios else [0.5, 0.6, 0.7, 0.8, 0.9]
-
-            # Adaptive thresholds
-            # Definitely filled: bottom 10% intensity, bottom 20% ratio
-            definitely_filled_intensity_threshold = intensity_percentiles[0]  # 10th percentile
-            definitely_filled_ratio_threshold = ratio_percentiles[1]  # 20th percentile
-
-            # Probably filled: bottom 30% intensity, bottom 40% ratio
-            probably_filled_intensity_threshold = intensity_percentiles[2]  # 30th percentile
-            probably_filled_ratio_threshold = ratio_percentiles[3]  # 40th percentile
-
-            # Possibly filled: bottom 50% intensity, reasonable ratio
-            possibly_filled_intensity_threshold = intensity_percentiles[4]  # 50th percentile (median)
-            possibly_filled_ratio_threshold = 0.85  # Fixed reasonable threshold
-
-        else:
-            # Fallback to conservative fixed thresholds if not enough data
-            definitely_filled_intensity_threshold = 80
-            definitely_filled_ratio_threshold = 0.5
-            probably_filled_intensity_threshold = 120
-            probably_filled_ratio_threshold = 0.7
-            possibly_filled_intensity_threshold = 150
-            possibly_filled_ratio_threshold = 0.85
-
-        # Step 3: Classify each bubble using adaptive thresholds
+        # Pre-analyze all bubbles for this specific set
+        bubble_stats = []
         for x, y, r in bubbles:
             mask = np.zeros(gray.shape, dtype=np.uint8)
             cv2.circle(mask, (x, y), max(1, r - 1), 255, -1)
@@ -565,35 +519,92 @@ class OMRProcessor:
             if len(bubble_pixels) > 0:
                 mean_intensity = np.mean(bubble_pixels)
                 min_intensity = np.min(bubble_pixels)
+                std_intensity = np.std(bubble_pixels)
 
+                # Surrounding area analysis
                 surrounding_mask = np.zeros(gray.shape, dtype=np.uint8)
-                cv2.circle(surrounding_mask, (x, y), r + 3, 255, -1)
+                cv2.circle(surrounding_mask, (x, y), r + 4, 255, -1)
                 cv2.circle(surrounding_mask, (x, y), r - 1, 0, -1)
                 surrounding_pixels = gray[surrounding_mask == 255]
                 surrounding_mean = np.mean(surrounding_pixels) if len(surrounding_pixels) > 0 else global_mean
 
-                ratio_to_surrounding = mean_intensity / surrounding_mean if surrounding_mean > 0 else 1.0
+                bubble_stats.append({
+                    'mean': mean_intensity,
+                    'min': min_intensity,
+                    'std': std_intensity,
+                    'surrounding': surrounding_mean,
+                    'ratio': mean_intensity / surrounding_mean if surrounding_mean > 0 else 1.0
+                })
+            else:
+                bubble_stats.append({'mean': 255, 'min': 255, 'std': 0, 'surrounding': 255, 'ratio': 1.0})
 
-                # ADAPTIVE classification using image-specific thresholds
-                definitely_filled = (
-                    mean_intensity <= definitely_filled_intensity_threshold and
-                    ratio_to_surrounding <= definitely_filled_ratio_threshold
-                )
+        # Calculate dynamic thresholds for this specific question's bubbles
+        if len(bubble_stats) == 4:  # Exactly 4 bubbles for this question
+            intensities = [s['mean'] for s in bubble_stats]
+            ratios = [s['ratio'] for s in bubble_stats]
 
-                probably_filled = (
-                    mean_intensity <= probably_filled_intensity_threshold and
-                    ratio_to_surrounding <= probably_filled_ratio_threshold and
-                    min_intensity < (definitely_filled_intensity_threshold * 1.5)
-                )
+            # Sort to identify potential filled bubbles
+            intensity_sorted = sorted(intensities)
+            ratio_sorted = sorted(ratios)
 
-                possibly_filled = (
-                    mean_intensity <= possibly_filled_intensity_threshold and
-                    ratio_to_surrounding <= possibly_filled_ratio_threshold and
-                    min_intensity < (probably_filled_intensity_threshold * 1.2) and
-                    mean_intensity < (global_mean * 0.85)
-                )
+            # Dynamic thresholds based on the relative darkness within this question
+            # If there's a significant gap between darkest and others, use that
+            intensity_gap = intensity_sorted[1] - intensity_sorted[0] if len(intensity_sorted) > 1 else 0
+            ratio_gap = ratio_sorted[1] - ratio_sorted[0] if len(ratio_sorted) > 1 else 0
 
-                is_filled = definitely_filled or probably_filled or possibly_filled
+            # Thresholds for this specific question
+            if intensity_gap > 30:  # Clear dark bubble present
+                intensity_threshold = (intensity_sorted[0] + intensity_sorted[1]) / 2
+            else:
+                intensity_threshold = intensity_sorted[0] + 20  # More lenient
+
+            if ratio_gap > 0.2:  # Clear ratio difference
+                ratio_threshold = (ratio_sorted[0] + ratio_sorted[1]) / 2
+            else:
+                ratio_threshold = ratio_sorted[0] + 0.15  # More lenient
+
+        else:
+            # Fallback for non-standard bubble counts
+            intensity_threshold = global_mean * 0.7
+            ratio_threshold = 0.8
+
+        # Classify each bubble
+        for i, (x, y, r) in enumerate(bubbles):
+            if i < len(bubble_stats):
+                stats = bubble_stats[i]
+
+                # Multiple classification criteria
+                criteria_met = 0
+
+                # Criterion 1: Absolute darkness
+                if stats['mean'] < intensity_threshold:
+                    criteria_met += 2  # Strong indicator
+
+                # Criterion 2: Ratio to surrounding
+                if stats['ratio'] < ratio_threshold:
+                    criteria_met += 2  # Strong indicator
+
+                # Criterion 3: Minimum intensity (very dark pixels present)
+                if stats['min'] < (intensity_threshold * 0.8):
+                    criteria_met += 1
+
+                # Criterion 4: Low standard deviation (consistent darkness)
+                if stats['std'] < 30:
+                    criteria_met += 1
+
+                # Criterion 5: Much darker than global mean
+                if stats['mean'] < (global_mean * 0.6):
+                    criteria_met += 1
+
+                # Criterion 6: Darkest in this set of 4 bubbles (relative comparison)
+                if len(bubble_stats) == 4:
+                    darkest_index = min(range(4), key=lambda x: bubble_stats[x]['mean'])
+                    if i == darkest_index and bubble_stats[i]['mean'] < (global_mean * 0.85):
+                        criteria_met += 1
+
+                # Final classification: need at least 3 criteria or 2 strong criteria
+                is_filled = criteria_met >= 3
+
                 classifications.append(is_filled)
             else:
                 classifications.append(False)
