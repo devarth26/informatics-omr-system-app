@@ -1,0 +1,39 @@
+==================================================
+OMR EVALUATION REPORT
+==================================================
+Student: DevarthN
+ID: 1235
+Set: A
+Timestamp: 2025-09-21T02:24:55.375204
+
+OVERALL PERFORMANCE
+------------------------------
+Total Score: 0/100
+Percentage: 0.0%
+
+SUBJECT-WISE SCORES
+------------------------------
+PYTHON      : 0/20 (0.0%)
+EDA         : 0/20 (0.0%)
+SQL         : 0/20 (0.0%)
+POWER BI    : 0/20 (0.0%)
+ADV STATS   : 0/20 (0.0%)
+
+ANSWER SUMMARY
+------------------------------
+Correct:     0
+Incorrect:   0
+Unanswered:  55
+Ambiguous:   5
+
+QUALITY FLAGS
+------------------------------
+• Question 1: Ambiguous answer
+• Question 2: Ambiguous answer
+• Question 3: Ambiguous answer
+• Question 21: Ambiguous answer
+• Question 41: Ambiguous answer
+• Multiple marks detected in 8 questions
+• Low quality score: -77.8%
+
+Quality Score: -77.8%

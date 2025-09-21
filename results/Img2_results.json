@@ -1,0 +1,1096 @@
+{
+  "student_info": {
+    "name": "dsf",
+    "id": "456"
+  },
+  "set": "A",
+  "timestamp": "2025-09-21T02:49:20.114499",
+  "subject_scores": {
+    "PYTHON": {
+      "correct": 0,
+      "total": 20,
+      "percentage": 0.0,
+      "score": 0
+    },
+    "EDA": {
+      "correct": 0,
+      "total": 20,
+      "percentage": 0.0,
+      "score": 0
+    },
+    "SQL": {
+      "correct": 0,
+      "total": 20,
+      "percentage": 0.0,
+      "score": 0
+    },
+    "POWER BI": {
+      "correct": 0,
+      "total": 20,
+      "percentage": 0.0,
+      "score": 0
+    },
+    "ADV STATS": {
+      "correct": 0,
+      "total": 20,
+      "percentage": 0.0,
+      "score": 0
+    }
+  },
+  "total_score": 0,
+  "max_possible_score": 100,
+  "percentage": 0.0,
+  "question_details": {
+    "1": {
+      "question_number": 1,
+      "subject": "PYTHON",
+      "extracted_answer": "b",
+      "correct_answer": "a",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "2": {
+      "question_number": 2,
+      "subject": "PYTHON",
+      "extracted_answer": "a",
+      "correct_answer": "c",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "3": {
+      "question_number": 3,
+      "subject": "PYTHON",
+      "extracted_answer": "a",
+      "correct_answer": "b",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "4": {
+      "question_number": 4,
+      "subject": "PYTHON",
+      "extracted_answer": "a",
+      "correct_answer": "d",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "5": {
+      "question_number": 5,
+      "subject": "PYTHON",
+      "extracted_answer": "a",
+      "correct_answer": "c",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "6": {
+      "question_number": 6,
+      "subject": "PYTHON",
+      "extracted_answer": "a",
+      "correct_answer": "c",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "7": {
+      "question_number": 7,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "8": {
+      "question_number": 8,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "9": {
+      "question_number": 9,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "10": {
+      "question_number": 10,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "11": {
+      "question_number": 11,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "12": {
+      "question_number": 12,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "13": {
+      "question_number": 13,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "14": {
+      "question_number": 14,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "15": {
+      "question_number": 15,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "16": {
+      "question_number": 16,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "17": {
+      "question_number": 17,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "18": {
+      "question_number": 18,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "19": {
+      "question_number": 19,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "20": {
+      "question_number": 20,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "21": {
+      "question_number": 21,
+      "subject": "EDA",
+      "extracted_answer": "a",
+      "correct_answer": "b",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "22": {
+      "question_number": 22,
+      "subject": "EDA",
+      "extracted_answer": "a",
+      "correct_answer": "b",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "23": {
+      "question_number": 23,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "24": {
+      "question_number": 24,
+      "subject": "EDA",
+      "extracted_answer": "a",
+      "correct_answer": "c",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "25": {
+      "question_number": 25,
+      "subject": "EDA",
+      "extracted_answer": "a",
+      "correct_answer": "d",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "26": {
+      "question_number": 26,
+      "subject": "EDA",
+      "extracted_answer": "b",
+      "correct_answer": "d",
+      "status": "incorrect",
+      "confidence": "high",
+      "notes": []
+    },
+    "27": {
+      "question_number": 27,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "28": {
+      "question_number": 28,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "29": {
+      "question_number": 29,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "30": {
+      "question_number": 30,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "31": {
+      "question_number": 31,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "32": {
+      "question_number": 32,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "33": {
+      "question_number": 33,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "34": {
+      "question_number": 34,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "35": {
+      "question_number": 35,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "36": {
+      "question_number": 36,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "37": {
+      "question_number": 37,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "38": {
+      "question_number": 38,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "39": {
+      "question_number": 39,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "d",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "40": {
+      "question_number": 40,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "c",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "41": {
+      "question_number": 41,
+      "subject": "SQL",
+      "extracted_answer": "a",
+      "correct_answer": "c",
+      "status": "ambiguous",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "Low confidence detection"
+      ]
+    },
+    "42": {
+      "question_number": 42,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "43": {
+      "question_number": 43,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "44": {
+      "question_number": 44,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "45": {
+      "question_number": 45,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "46": {
+      "question_number": 46,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "47": {
+      "question_number": 47,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "48": {
+      "question_number": 48,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "49": {
+      "question_number": 49,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "d",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "50": {
+      "question_number": 50,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "51": {
+      "question_number": 51,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "52": {
+      "question_number": 52,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "53": {
+      "question_number": 53,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "54": {
+      "question_number": 54,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "55": {
+      "question_number": 55,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "56": {
+      "question_number": 56,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "a",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "57": {
+      "question_number": 57,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "58": {
+      "question_number": 58,
+      "subject": "EDA",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "59": {
+      "question_number": 59,
+      "subject": "SQL",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "60": {
+      "question_number": 60,
+      "subject": "POWER BI",
+      "extracted_answer": null,
+      "correct_answer": "b",
+      "status": "unanswered",
+      "confidence": "unknown",
+      "notes": []
+    },
+    "61": {
+      "question_number": 61,
+      "subject": "POWER BI",
+      "extracted_answer": "a",
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "No answer key available"
+      ]
+    },
+    "62": {
+      "question_number": 62,
+      "subject": "POWER BI",
+      "extracted_answer": "a",
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "No answer key available"
+      ]
+    },
+    "63": {
+      "question_number": 63,
+      "subject": "POWER BI",
+      "extracted_answer": "a",
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "No answer key available"
+      ]
+    },
+    "64": {
+      "question_number": 64,
+      "subject": "POWER BI",
+      "extracted_answer": "a",
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "No answer key available"
+      ]
+    },
+    "65": {
+      "question_number": 65,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "66": {
+      "question_number": 66,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "67": {
+      "question_number": 67,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "68": {
+      "question_number": 68,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "69": {
+      "question_number": 69,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "70": {
+      "question_number": 70,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "71": {
+      "question_number": 71,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "72": {
+      "question_number": 72,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "73": {
+      "question_number": 73,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "74": {
+      "question_number": 74,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "75": {
+      "question_number": 75,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "76": {
+      "question_number": 76,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "77": {
+      "question_number": 77,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "78": {
+      "question_number": 78,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "79": {
+      "question_number": 79,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "80": {
+      "question_number": 80,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "81": {
+      "question_number": 81,
+      "subject": "ADV STATS",
+      "extracted_answer": "a",
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "No answer key available"
+      ]
+    },
+    "82": {
+      "question_number": 82,
+      "subject": "ADV STATS",
+      "extracted_answer": "a",
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "low",
+      "notes": [
+        "Multiple marks detected",
+        "No answer key available"
+      ]
+    },
+    "83": {
+      "question_number": 83,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "84": {
+      "question_number": 84,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "85": {
+      "question_number": 85,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "86": {
+      "question_number": 86,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "87": {
+      "question_number": 87,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "88": {
+      "question_number": 88,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "89": {
+      "question_number": 89,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "90": {
+      "question_number": 90,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "91": {
+      "question_number": 91,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "92": {
+      "question_number": 92,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "93": {
+      "question_number": 93,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "94": {
+      "question_number": 94,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "95": {
+      "question_number": 95,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "96": {
+      "question_number": 96,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "97": {
+      "question_number": 97,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "98": {
+      "question_number": 98,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "99": {
+      "question_number": 99,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    },
+    "100": {
+      "question_number": 100,
+      "subject": "UNKNOWN",
+      "extracted_answer": null,
+      "correct_answer": null,
+      "status": "no_answer_key",
+      "confidence": "unknown",
+      "notes": [
+        "No answer key available"
+      ]
+    }
+  },
+  "summary": {
+    "correct": 0,
+    "incorrect": 1,
+    "unanswered": 48,
+    "ambiguous": 11
+  },
+  "flags": [
+    "Question 1: Ambiguous answer",
+    "Question 2: Ambiguous answer",
+    "Question 3: Ambiguous answer",
+    "Question 4: Ambiguous answer",
+    "Question 5: Ambiguous answer",
+    "Question 6: Ambiguous answer",
+    "Question 21: Ambiguous answer",
+    "Question 22: Ambiguous answer",
+    "Question 24: Ambiguous answer",
+    "Question 25: Ambiguous answer",
+    "Question 41: Ambiguous answer",
+    "High number of low-confidence answers: 17",
+    "Multiple marks detected in 17 questions",
+    "Low quality score: -88.9%"
+  ],
+  "quality_score": -88.88888888888889,
+  "processing_metadata": {
+    "image_path": "../uploads/Img2.jpeg",
+    "image_size": [
+      1141,
+      1100
+    ],
+    "bubbles_detected": 18,
+    "set_used": "A"
+  }
+}
