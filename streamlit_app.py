@@ -339,7 +339,7 @@ class ScoringEngine:
             student_answer = student_data.get('answer', '').upper() if student_data.get('answer') else None
             confidence = student_data.get('confidence', 'none')
 
-            # Determine correctness
+            # Determine correctness - accept both high and low confidence answers
             if student_answer is None:
                 status = 'unanswered'
                 score = 0
@@ -381,7 +381,7 @@ class OMRProcessor:
     """Complete OMR processor for Streamlit Cloud"""
 
     def __init__(self):
-        self.subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'ADV STATS']
+        self.subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'STATISTICS']
         self.expected_columns = 5
         self.expected_rows_per_column = 20
         self.bubbles_per_question = 4
