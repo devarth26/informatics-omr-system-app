@@ -168,14 +168,14 @@ class AnswerKeyLoader:
         """Parse the new Excel format with 'question_number - answer_option' format"""
         answers = {}
 
-        # Map Excel columns to our subject names
+        # Map Excel columns to standardized subject names
         subject_mapping = {
             'PYTHON': 'PYTHON',
-            'EDA': 'EDA',
-            'SQL': 'SQL',
+            'EDA': 'DATA ANALYSIS',
+            'SQL': 'MySQL',
             'POWER BI': 'POWER BI',
-            'STATISTICS': 'STATISTICS',
-            'SATISTICS': 'STATISTICS'  # Handle typo in Excel
+            'STATISTICS': 'ADV STATS',
+            'SATISTICS': 'ADV STATS'  # Handle typo in Excel
         }
 
         # Clean column names
@@ -293,7 +293,7 @@ class ScoringEngine:
 
     def __init__(self, answer_key_loader):
         self.answer_key_loader = answer_key_loader
-        self.subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'STATISTICS']
+        self.subjects = ['PYTHON', 'DATA ANALYSIS', 'MySQL', 'POWER BI', 'ADV STATS']
 
     def score_omr_sheet(self, extracted_answers, set_letter, student_info=None):
         """Score an OMR sheet against answer key"""
@@ -381,7 +381,7 @@ class OMRProcessor:
     """Complete OMR processor for Streamlit Cloud"""
 
     def __init__(self):
-        self.subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'STATISTICS']
+        self.subjects = ['PYTHON', 'DATA ANALYSIS', 'MySQL', 'POWER BI', 'ADV STATS']
         self.expected_columns = 5
         self.expected_rows_per_column = 20
         self.bubbles_per_question = 4
