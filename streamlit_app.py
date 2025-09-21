@@ -501,64 +501,99 @@ class OMRProcessor:
         return organized_grid
 
     def classify_bubbles(self, image, bubbles):
-        """Classify bubbles as filled or empty using enhanced statistical analysis"""
+        """Adaptive bubble classification that works across different image conditions"""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         classifications = []
 
-        # Calculate global statistics for adaptive thresholding
+        # Step 1: Analyze ALL bubbles to understand this image's intensity distribution
+        all_bubble_intensities = []
+        all_bubble_ratios = []
         global_mean = np.mean(gray)
-        global_std = np.std(gray)
 
         for x, y, r in bubbles:
-            # Create mask for bubble region
             mask = np.zeros(gray.shape, dtype=np.uint8)
             cv2.circle(mask, (x, y), max(1, r - 1), 255, -1)
-
-            # Extract bubble pixels
             bubble_pixels = gray[mask == 255]
 
             if len(bubble_pixels) > 0:
                 mean_intensity = np.mean(bubble_pixels)
-                min_intensity = np.min(bubble_pixels)
-                std_intensity = np.std(bubble_pixels)
+                all_bubble_intensities.append(mean_intensity)
 
-                # Extract surrounding area for comparison
+                # Get surrounding for ratio
                 surrounding_mask = np.zeros(gray.shape, dtype=np.uint8)
                 cv2.circle(surrounding_mask, (x, y), r + 3, 255, -1)
                 cv2.circle(surrounding_mask, (x, y), r - 1, 0, -1)
                 surrounding_pixels = gray[surrounding_mask == 255]
                 surrounding_mean = np.mean(surrounding_pixels) if len(surrounding_pixels) > 0 else global_mean
 
-                # Balanced classification based on actual image analysis
-                # Key findings: filled bubbles ~25-45 intensity, unfilled ~155-195
+                if surrounding_mean > 0:
+                    all_bubble_ratios.append(mean_intensity / surrounding_mean)
+
+        # Step 2: Calculate adaptive thresholds based on this image's data
+        if len(all_bubble_intensities) > 10:  # Need sufficient data
+            intensity_percentiles = np.percentile(all_bubble_intensities, [10, 20, 30, 40, 50])
+            ratio_percentiles = np.percentile(all_bubble_ratios, [10, 20, 30, 40, 50]) if all_bubble_ratios else [0.5, 0.6, 0.7, 0.8, 0.9]
+
+            # Adaptive thresholds
+            # Definitely filled: bottom 10% intensity, bottom 20% ratio
+            definitely_filled_intensity_threshold = intensity_percentiles[0]  # 10th percentile
+            definitely_filled_ratio_threshold = ratio_percentiles[1]  # 20th percentile
+
+            # Probably filled: bottom 30% intensity, bottom 40% ratio
+            probably_filled_intensity_threshold = intensity_percentiles[2]  # 30th percentile
+            probably_filled_ratio_threshold = ratio_percentiles[3]  # 40th percentile
+
+            # Possibly filled: bottom 50% intensity, reasonable ratio
+            possibly_filled_intensity_threshold = intensity_percentiles[4]  # 50th percentile (median)
+            possibly_filled_ratio_threshold = 0.85  # Fixed reasonable threshold
+
+        else:
+            # Fallback to conservative fixed thresholds if not enough data
+            definitely_filled_intensity_threshold = 80
+            definitely_filled_ratio_threshold = 0.5
+            probably_filled_intensity_threshold = 120
+            probably_filled_ratio_threshold = 0.7
+            possibly_filled_intensity_threshold = 150
+            possibly_filled_ratio_threshold = 0.85
+
+        # Step 3: Classify each bubble using adaptive thresholds
+        for x, y, r in bubbles:
+            mask = np.zeros(gray.shape, dtype=np.uint8)
+            cv2.circle(mask, (x, y), max(1, r - 1), 255, -1)
+            bubble_pixels = gray[mask == 255]
+
+            if len(bubble_pixels) > 0:
+                mean_intensity = np.mean(bubble_pixels)
+                min_intensity = np.min(bubble_pixels)
+
+                surrounding_mask = np.zeros(gray.shape, dtype=np.uint8)
+                cv2.circle(surrounding_mask, (x, y), r + 3, 255, -1)
+                cv2.circle(surrounding_mask, (x, y), r - 1, 0, -1)
+                surrounding_pixels = gray[surrounding_mask == 255]
+                surrounding_mean = np.mean(surrounding_pixels) if len(surrounding_pixels) > 0 else global_mean
 
                 ratio_to_surrounding = mean_intensity / surrounding_mean if surrounding_mean > 0 else 1.0
 
-                # Multi-tier classification approach
-                # Tier 1: Definitely filled (very dark bubbles)
+                # ADAPTIVE classification using image-specific thresholds
                 definitely_filled = (
-                    mean_intensity < 60 and
-                    ratio_to_surrounding < 0.4
+                    mean_intensity <= definitely_filled_intensity_threshold and
+                    ratio_to_surrounding <= definitely_filled_ratio_threshold
                 )
 
-                # Tier 2: Probably filled (moderately dark with good ratio)
                 probably_filled = (
-                    mean_intensity < 100 and
-                    ratio_to_surrounding < 0.7 and
-                    min_intensity < 80
+                    mean_intensity <= probably_filled_intensity_threshold and
+                    ratio_to_surrounding <= probably_filled_ratio_threshold and
+                    min_intensity < (definitely_filled_intensity_threshold * 1.5)
                 )
 
-                # Tier 3: Possibly filled (based on multiple weak indicators)
                 possibly_filled = (
-                    mean_intensity < 140 and
-                    ratio_to_surrounding < 0.85 and
-                    min_intensity < 100 and
-                    mean_intensity < (global_mean * 0.8)
+                    mean_intensity <= possibly_filled_intensity_threshold and
+                    ratio_to_surrounding <= possibly_filled_ratio_threshold and
+                    min_intensity < (probably_filled_intensity_threshold * 1.2) and
+                    mean_intensity < (global_mean * 0.85)
                 )
 
-                # Final decision: filled if any tier matches
                 is_filled = definitely_filled or probably_filled or possibly_filled
-
                 classifications.append(is_filled)
             else:
                 classifications.append(False)
@@ -958,6 +993,16 @@ def display_scored_results(scoring_results, processing_results):
 
             df_questions = pd.DataFrame(question_data)
             st.dataframe(df_questions, use_container_width=True)
+
+    # Debug Section - Show Raw Extracted Data
+    st.subheader("🔍 Debug Information")
+
+    with st.expander("📄 Raw Extracted Answers (JSON)", expanded=False):
+        st.json(processing_results['extracted_answers'])
+
+    with st.expander("🔧 Processing Metadata", expanded=False):
+        st.json(processing_results['metadata'])
+        st.json(processing_results['grid_info'])
 
     # Download results
     results_json = json.dumps({
