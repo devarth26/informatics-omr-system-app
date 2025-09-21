@@ -87,18 +87,28 @@ class AnswerKeyLoader:
     def load_from_excel(self, excel_file):
         """Load answer keys from uploaded Excel file"""
         try:
-            # Try to load Set A and Set B sheets
-            xl_file = pd.ExcelFile(excel_file)
+            # Try to load from the new format first (single sheet with both sets)
+            df = pd.read_excel(excel_file)
 
-            for sheet_name in xl_file.sheet_names:
-                if 'A' in sheet_name.upper():
-                    df_a = pd.read_excel(excel_file, sheet_name=sheet_name)
-                    self.answer_keys['A'] = self._parse_answer_sheet(df_a, 'Set A')
-                elif 'B' in sheet_name.upper():
-                    df_b = pd.read_excel(excel_file, sheet_name=sheet_name)
-                    self.answer_keys['B'] = self._parse_answer_sheet(df_b, 'Set B')
+            # Check if this is the new format (columns like 'Python', 'EDA', etc.)
+            if self._is_new_format(df):
+                # Parse the new format where both sets are in one sheet
+                self.answer_keys['A'] = self._parse_new_format(df, 'A')
+                self.answer_keys['B'] = self._parse_new_format(df, 'B')
+                return len(self.answer_keys) > 0
+            else:
+                # Fall back to old format with separate sheets
+                xl_file = pd.ExcelFile(excel_file)
 
-            return len(self.answer_keys) > 0
+                for sheet_name in xl_file.sheet_names:
+                    if 'A' in sheet_name.upper():
+                        df_a = pd.read_excel(excel_file, sheet_name=sheet_name)
+                        self.answer_keys['A'] = self._parse_answer_sheet(df_a, 'Set A')
+                    elif 'B' in sheet_name.upper():
+                        df_b = pd.read_excel(excel_file, sheet_name=sheet_name)
+                        self.answer_keys['B'] = self._parse_answer_sheet(df_b, 'Set B')
+
+                return len(self.answer_keys) > 0
         except Exception as e:
             st.error(f"Error loading answer keys: {str(e)}")
             return False
@@ -145,6 +155,135 @@ class AnswerKeyLoader:
 
         return answers
 
+    def _is_new_format(self, df):
+        """Check if this is the new Excel format with subject columns"""
+        expected_subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'STATISTICS']
+        columns = [str(col).strip().upper() for col in df.columns]
+
+        # Check if at least 3 expected subjects are present in columns
+        matches = sum(1 for subject in expected_subjects if any(subject in col for col in columns))
+        return matches >= 3
+
+    def _parse_new_format(self, df, set_letter):
+        """Parse the new Excel format with 'question_number - answer_option' format"""
+        answers = {}
+
+        # Map Excel columns to our subject names
+        subject_mapping = {
+            'PYTHON': 'PYTHON',
+            'EDA': 'EDA',
+            'SQL': 'SQL',
+            'POWER BI': 'POWER BI',
+            'STATISTICS': 'STATISTICS',
+            'SATISTICS': 'STATISTICS'  # Handle typo in Excel
+        }
+
+        # Clean column names
+        columns = [str(col).strip() for col in df.columns]
+
+        try:
+            for col_name in columns:
+                col_upper = col_name.upper()
+
+                # Find which subject this column represents
+                subject_key = None
+                for excel_subject, our_subject in subject_mapping.items():
+                    if excel_subject in col_upper:
+                        subject_key = our_subject
+                        break
+
+                if not subject_key:
+                    continue
+
+                # Find the original column name (may have whitespace)
+                original_col_name = None
+                for orig_col in df.columns:
+                    if str(orig_col).strip().upper() == col_upper:
+                        original_col_name = orig_col
+                        break
+
+                if not original_col_name:
+                    continue
+
+                # Get non-empty values from this column
+                col_data = df[original_col_name].dropna().head(20)  # Max 20 questions per subject
+
+                for cell_value in col_data:
+                    if pd.isna(cell_value):
+                        continue
+
+                    cell_str = str(cell_value).strip()
+                    if not cell_str:
+                        continue
+
+                    # Parse "question_number - answer_option" or "question_number. answer_option"
+                    parsed_data = self._parse_question_answer(cell_str)
+                    if parsed_data:
+                        q_num, answer_options = parsed_data
+
+                        # For now, we'll use the first answer option for both sets
+                        # This assumes the Excel contains answers for Set A
+                        # You may need to modify this logic based on your specific requirements
+                        if set_letter == 'A':
+                            primary_answer = answer_options[0] if answer_options else None
+                        else:  # Set B - could use same answers or different logic
+                            primary_answer = answer_options[0] if answer_options else None
+
+                        if primary_answer:
+                            answers[q_num] = {
+                                'answer': primary_answer.upper(),
+                                'subject': subject_key,
+                                'marks': 1,
+                                'all_options': answer_options  # Store all options for multi-answer questions
+                            }
+
+        except Exception as e:
+            st.error(f"Error parsing new format for Set {set_letter}: {str(e)}")
+
+        return answers
+
+    def _parse_question_answer(self, cell_value):
+        """Parse 'question_number - answer_option' format"""
+        try:
+            # Handle formats like "1 - a", "21 - a", "81. a", etc.
+            # Split by '-' or '.'
+            if ' - ' in cell_value:
+                parts = cell_value.split(' - ')
+            elif '. ' in cell_value:
+                parts = cell_value.split('. ')
+            else:
+                return None
+
+            if len(parts) != 2:
+                return None
+
+            # Extract question number
+            q_num_str = parts[0].strip()
+            if not q_num_str.isdigit():
+                return None
+            q_num = int(q_num_str)
+
+            # Extract answer options
+            answer_part = parts[1].strip().lower()
+
+            # Handle multiple answers like "a,b,c,d" or single answers like "a"
+            if ',' in answer_part:
+                answer_options = [opt.strip() for opt in answer_part.split(',')]
+            else:
+                answer_options = [answer_part]
+
+            # Validate answer options
+            valid_answers = ['a', 'b', 'c', 'd']
+            answer_options = [opt for opt in answer_options if opt in valid_answers]
+
+            if not answer_options:
+                return None
+
+            return q_num, answer_options
+
+        except Exception:
+            return None
+
     def get_answer_key(self, set_letter):
         """Get answer key for specific set"""
         return self.answer_keys.get(set_letter, {})
@@ -154,7 +293,7 @@ class ScoringEngine:
 
     def __init__(self, answer_key_loader):
         self.answer_key_loader = answer_key_loader
-        self.subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'ADV STATS']
+        self.subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'STATISTICS']
 
     def score_omr_sheet(self, extracted_answers, set_letter, student_info=None):
         """Score an OMR sheet against answer key"""
@@ -531,9 +670,16 @@ def answer_key_manager_page():
 
     st.info("""
     📋 **Upload Answer Key Excel File:**
-    - File should contain sheets named 'Set - A', 'Set - B', etc.
-    - Each sheet should have answer columns for subjects
-    - Answers should be A, B, C, or D
+
+    **Supported Formats:**
+    1. **New Format (Recommended)**: Single sheet with subject columns (Python, EDA, SQL, Power BI, Statistics)
+       - Each cell format: "question_number - answer_option" (e.g., "1 - a", "21 - b")
+       - Supports multi-option answers: "16 - a,b,c,d"
+       - System automatically creates both Set A and Set B from same data
+
+    2. **Legacy Format**: Separate sheets named 'Set - A', 'Set - B', etc.
+       - Each sheet should have answer columns for subjects
+       - Direct answers: A, B, C, or D
     """)
 
     uploaded_excel = st.file_uploader(
