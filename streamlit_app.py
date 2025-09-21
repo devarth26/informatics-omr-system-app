@@ -9,6 +9,7 @@ import cv2
 import numpy as np
 from PIL import Image
 from sklearn.cluster import KMeans
+import re
 
 # Configure page
 st.set_page_config(
@@ -53,8 +54,189 @@ st.markdown("""
         padding: 1rem;
         margin: 1rem 0;
     }
+    .score-high {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: bold;
+    }
+    .score-medium {
+        background-color: #fff3cd;
+        color: #856404;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: bold;
+    }
+    .score-low {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: bold;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+class AnswerKeyLoader:
+    """Load and parse answer keys from Excel files"""
+
+    def __init__(self):
+        self.answer_keys = {}
+
+    def load_from_excel(self, excel_file):
+        """Load answer keys from uploaded Excel file"""
+        try:
+            # Try to load Set A and Set B sheets
+            xl_file = pd.ExcelFile(excel_file)
+
+            for sheet_name in xl_file.sheet_names:
+                if 'A' in sheet_name.upper():
+                    df_a = pd.read_excel(excel_file, sheet_name=sheet_name)
+                    self.answer_keys['A'] = self._parse_answer_sheet(df_a, 'Set A')
+                elif 'B' in sheet_name.upper():
+                    df_b = pd.read_excel(excel_file, sheet_name=sheet_name)
+                    self.answer_keys['B'] = self._parse_answer_sheet(df_b, 'Set B')
+
+            return len(self.answer_keys) > 0
+        except Exception as e:
+            st.error(f"Error loading answer keys: {str(e)}")
+            return False
+
+    def _parse_answer_sheet(self, df, set_name):
+        """Parse answer sheet DataFrame"""
+        answers = {}
+        subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'ADV STATS']
+
+        # Clean column names
+        columns = [col.strip() if isinstance(col, str) else col for col in df.columns]
+        df.columns = columns
+
+        try:
+            for subject_idx, subject in enumerate(subjects):
+                # Find answer column for this subject
+                answer_col = None
+                for col in columns:
+                    if isinstance(col, str) and (subject.lower() in col.lower() or
+                                               'answer' in col.lower()):
+                        answer_col = col
+                        break
+
+                if answer_col and answer_col in df.columns:
+                    # Extract answers for this subject (20 questions per subject)
+                    start_q = subject_idx * 20 + 1
+                    end_q = (subject_idx + 1) * 20
+
+                    subject_answers = df[answer_col].dropna().head(20)
+
+                    for i, answer in enumerate(subject_answers):
+                        q_num = start_q + i
+                        if isinstance(answer, str):
+                            answer = answer.upper().strip()
+                            if answer in ['A', 'B', 'C', 'D']:
+                                answers[q_num] = {
+                                    'answer': answer,
+                                    'subject': subject,
+                                    'marks': 1
+                                }
+
+        except Exception as e:
+            st.error(f"Error parsing {set_name}: {str(e)}")
+
+        return answers
+
+    def get_answer_key(self, set_letter):
+        """Get answer key for specific set"""
+        return self.answer_keys.get(set_letter, {})
+
+class ScoringEngine:
+    """OMR Scoring Engine"""
+
+    def __init__(self, answer_key_loader):
+        self.answer_key_loader = answer_key_loader
+        self.subjects = ['PYTHON', 'EDA', 'SQL', 'POWER BI', 'ADV STATS']
+
+    def score_omr_sheet(self, extracted_answers, set_letter, student_info=None):
+        """Score an OMR sheet against answer key"""
+        answer_key = self.answer_key_loader.get_answer_key(set_letter)
+
+        if not answer_key:
+            return {'error': f'No answer key found for Set {set_letter}'}
+
+        results = {
+            'student_info': student_info or {},
+            'set': set_letter,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'subject_scores': {},
+            'total_score': 0,
+            'max_possible_score': 100,
+            'percentage': 0.0,
+            'question_details': {},
+            'summary': {
+                'correct': 0,
+                'incorrect': 0,
+                'unanswered': 0,
+                'total_questions': len(answer_key)
+            }
+        }
+
+        # Initialize subject scores
+        for subject in self.subjects:
+            results['subject_scores'][subject] = {
+                'correct': 0,
+                'total': 20,
+                'score': 0,
+                'percentage': 0.0
+            }
+
+        # Score each question
+        for q_num, correct_data in answer_key.items():
+            correct_answer = correct_data['answer']
+            subject = correct_data['subject']
+            marks = correct_data.get('marks', 1)
+
+            # Get student's answer
+            student_data = extracted_answers.get(str(q_num), {})
+            student_answer = student_data.get('answer', '').upper() if student_data.get('answer') else None
+            confidence = student_data.get('confidence', 'none')
+
+            # Determine correctness
+            if student_answer is None:
+                status = 'unanswered'
+                score = 0
+                results['summary']['unanswered'] += 1
+            elif student_answer == correct_answer:
+                status = 'correct'
+                score = marks
+                results['summary']['correct'] += 1
+                results['subject_scores'][subject]['correct'] += 1
+            else:
+                status = 'incorrect'
+                score = 0
+                results['summary']['incorrect'] += 1
+
+            # Store question details
+            results['question_details'][q_num] = {
+                'subject': subject,
+                'correct_answer': correct_answer,
+                'student_answer': student_answer,
+                'status': status,
+                'score': score,
+                'confidence': confidence,
+                'marks': marks
+            }
+
+            results['total_score'] += score
+
+        # Calculate percentages
+        results['percentage'] = (results['total_score'] / results['max_possible_score']) * 100
+
+        for subject in results['subject_scores']:
+            subject_score = results['subject_scores'][subject]
+            subject_score['score'] = subject_score['correct'] * 1  # 1 mark per question
+            subject_score['percentage'] = (subject_score['correct'] / subject_score['total']) * 100
+
+        return results
 
 class OMRProcessor:
     """Complete OMR processor for Streamlit Cloud"""
@@ -300,42 +482,120 @@ class OMRProcessor:
         except Exception as e:
             return {'error': f'Processing failed: {str(e)}'}
 
-@st.cache_resource
-def initialize_omr_processor():
-    """Initialize OMR processor with caching"""
-    return OMRProcessor()
+# Initialize session state
+if 'omr_processor' not in st.session_state:
+    st.session_state.omr_processor = OMRProcessor()
+
+if 'answer_key_loader' not in st.session_state:
+    st.session_state.answer_key_loader = AnswerKeyLoader()
+
+if 'scoring_engine' not in st.session_state:
+    st.session_state.scoring_engine = ScoringEngine(st.session_state.answer_key_loader)
+
+if 'processed_results' not in st.session_state:
+    st.session_state.processed_results = []
 
 def main():
-    st.markdown('<h1 class="main-header">📝 OMR Evaluation System</h1>', unsafe_allow_html=True)
-
-    # Initialize processor
-    processor = initialize_omr_processor()
+    st.markdown('<h1 class="main-header">📝 OMR Evaluation & Scoring System</h1>', unsafe_allow_html=True)
 
     # Sidebar
     st.sidebar.title("📋 Navigation")
     page = st.sidebar.selectbox("Choose a page:", [
-        "🔍 Process OMR Sheet",
-        "📊 Batch Processing",
+        "🎯 Process & Score OMR",
+        "📊 View Results & Statistics",
+        "📤 Batch Processing",
+        "📋 Answer Key Manager",
         "ℹ️ About"
     ])
 
-    if page == "🔍 Process OMR Sheet":
-        process_single_sheet(processor)
-    elif page == "📊 Batch Processing":
-        batch_processing(processor)
+    # Show answer key status
+    if st.session_state.answer_key_loader.answer_keys:
+        sets_loaded = list(st.session_state.answer_key_loader.answer_keys.keys())
+        st.sidebar.success(f"✅ Answer keys loaded: Set {', Set '.join(sets_loaded)}")
+    else:
+        st.sidebar.warning("⚠️ No answer keys loaded")
+
+    if page == "🎯 Process & Score OMR":
+        process_and_score_page()
+    elif page == "📊 View Results & Statistics":
+        results_statistics_page()
+    elif page == "📤 Batch Processing":
+        batch_processing_page()
+    elif page == "📋 Answer Key Manager":
+        answer_key_manager_page()
     elif page == "ℹ️ About":
         about_page()
 
-def process_single_sheet(processor):
-    st.header("🔍 Process Single OMR Sheet")
+def answer_key_manager_page():
+    st.header("📋 Answer Key Manager")
+
+    st.info("""
+    📋 **Upload Answer Key Excel File:**
+    - File should contain sheets named 'Set - A', 'Set - B', etc.
+    - Each sheet should have answer columns for subjects
+    - Answers should be A, B, C, or D
+    """)
+
+    uploaded_excel = st.file_uploader(
+        "Upload Answer Key Excel File",
+        type=['xlsx', 'xls'],
+        help="Upload Excel file containing answer keys"
+    )
+
+    if uploaded_excel is not None:
+        if st.button("📥 Load Answer Keys", type="primary"):
+            with st.spinner("Loading answer keys..."):
+                success = st.session_state.answer_key_loader.load_from_excel(uploaded_excel)
+
+                if success:
+                    st.success("✅ Answer keys loaded successfully!")
+
+                    # Show loaded sets
+                    for set_letter, answers in st.session_state.answer_key_loader.answer_keys.items():
+                        with st.expander(f"📚 Set {set_letter} ({len(answers)} questions)"):
+                            # Group by subject
+                            subjects = {}
+                            for q_num, data in answers.items():
+                                subject = data['subject']
+                                if subject not in subjects:
+                                    subjects[subject] = []
+                                subjects[subject].append((q_num, data['answer']))
+
+                            for subject, questions in subjects.items():
+                                st.write(f"**{subject}:**")
+                                questions.sort()
+                                answers_str = ', '.join([f"Q{q}: {a}" for q, a in questions[:5]])
+                                if len(questions) > 5:
+                                    answers_str += f" ... (showing first 5 of {len(questions)})"
+                                st.write(answers_str)
+                else:
+                    st.error("❌ Failed to load answer keys. Check file format.")
+
+def process_and_score_page():
+    st.header("🎯 Process & Score OMR Sheet")
+
+    if not st.session_state.answer_key_loader.answer_keys:
+        st.warning("⚠️ Please upload answer keys first using the 'Answer Key Manager' page.")
+        return
+
+    # Student Information Input
+    st.subheader("👤 Student Information")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        student_name = st.text_input("Student Name", placeholder="Enter student name")
+    with col2:
+        student_id = st.text_input("Student ID", placeholder="Enter student ID")
+    with col3:
+        set_letter = st.selectbox("Answer Set", list(st.session_state.answer_key_loader.answer_keys.keys()))
 
     # Instructions
     st.info("""
     📋 **Instructions:**
     - Upload a clear, well-lit OMR sheet image
     - Ensure bubbles are circular and completely filled
-    - Supported formats: JPG, PNG, TIFF, BMP
-    - Recommended resolution: 1200x1000+ pixels
+    - Select the correct answer set (A, B, etc.)
+    - Enter student information for proper record keeping
     """)
 
     # File upload
@@ -358,12 +618,13 @@ def process_single_sheet(processor):
             st.info(f"**Image Info:**\n"
                    f"- Size: {image.size[0]} x {image.size[1]} pixels\n"
                    f"- Mode: {image.mode}\n"
-                   f"- Format: {image.format}")
+                   f"- Student: {student_name or 'Not specified'}\n"
+                   f"- Set: {set_letter}")
 
         # Process button
-        if st.button("🚀 Process OMR Sheet", type="primary"):
+        if st.button("🚀 Process & Score OMR Sheet", type="primary"):
             with col2:
-                with st.spinner("Processing OMR sheet..."):
+                with st.spinner("Processing OMR sheet and calculating scores..."):
                     try:
                         # Convert PIL image to OpenCV format
                         image_array = np.array(image)
@@ -371,111 +632,278 @@ def process_single_sheet(processor):
                             image_array = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
 
                         # Process the image
-                        results = processor.process_image(image_array)
-                        display_results(results)
+                        processing_results = st.session_state.omr_processor.process_image(image_array)
+
+                        if 'error' in processing_results:
+                            st.error(f"❌ Processing Error: {processing_results['error']}")
+                            return
+
+                        # Score the results
+                        student_info = {
+                            'name': student_name,
+                            'id': student_id,
+                            'image_name': uploaded_file.name
+                        }
+
+                        scoring_results = st.session_state.scoring_engine.score_omr_sheet(
+                            processing_results['extracted_answers'],
+                            set_letter,
+                            student_info
+                        )
+
+                        if 'error' in scoring_results:
+                            st.error(f"❌ Scoring Error: {scoring_results['error']}")
+                            return
+
+                        # Store results
+                        combined_results = {
+                            'processing': processing_results,
+                            'scoring': scoring_results,
+                            'timestamp': datetime.now().isoformat()
+                        }
+
+                        st.session_state.processed_results.append(combined_results)
+
+                        # Display results
+                        display_scored_results(scoring_results, processing_results)
 
                     except Exception as e:
                         st.error(f"Error processing image: {str(e)}")
 
-def display_results(results):
-    st.subheader("📊 Processing Results")
+def display_scored_results(scoring_results, processing_results):
+    """Display scored OMR results"""
+    st.subheader("🎯 Scoring Results")
 
-    if 'error' in results:
-        st.markdown(f'<div class="error-box">❌ <strong>Error:</strong> {results["error"]}</div>',
-                   unsafe_allow_html=True)
-        return
+    # Student Info
+    student_info = scoring_results['student_info']
+    if student_info:
+        st.markdown(f"**Student:** {student_info.get('name', 'N/A')} | **ID:** {student_info.get('id', 'N/A')} | **Set:** {scoring_results['set']}")
 
-    # Extract data
-    answers = results.get('extracted_answers', {})
-    metadata = results.get('metadata', {})
-    grid_info = results.get('grid_info', {})
+    # Overall Score
+    total_score = scoring_results['total_score']
+    percentage = scoring_results['percentage']
+
+    # Color code based on performance
+    if percentage >= 80:
+        score_class = "score-high"
+        grade = "A"
+    elif percentage >= 60:
+        score_class = "score-medium"
+        grade = "B"
+    else:
+        score_class = "score-low"
+        grade = "C"
+
+    st.markdown(f"""
+    <div class="{score_class}">
+        🎯 <strong>Total Score: {total_score}/100 ({percentage:.1f}%) - Grade: {grade}</strong>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Summary metrics
-    total_questions = len(answers)
-    answered = sum(1 for ans in answers.values() if ans.get('answer'))
-    high_confidence = sum(1 for ans in answers.values() if ans.get('confidence') == 'high')
-    low_confidence = sum(1 for ans in answers.values() if ans.get('confidence') == 'low')
-
-    # Display metrics
+    summary = scoring_results['summary']
     col1, col2, col3, col4 = st.columns(4)
+
     with col1:
-        st.metric("Total Questions", total_questions)
+        st.metric("✅ Correct", summary['correct'])
     with col2:
-        st.metric("Answered", answered, f"{(answered/total_questions*100):.1f}%" if total_questions > 0 else "0%")
+        st.metric("❌ Incorrect", summary['incorrect'])
     with col3:
-        st.metric("High Confidence", high_confidence, f"{(high_confidence/total_questions*100):.1f}%" if total_questions > 0 else "0%")
+        st.metric("⚪ Unanswered", summary['unanswered'])
     with col4:
-        st.metric("Low Confidence", low_confidence, f"{(low_confidence/total_questions*100):.1f}%" if total_questions > 0 else "0%")
+        st.metric("📊 Accuracy", f"{(summary['correct']/summary['total_questions']*100):.1f}%")
 
-    # Processing info
-    st.markdown(f"""
-    **Processing Details:**
-    - Circles detected: {grid_info.get('total_circles', 0)}
-    - Questions organized: {grid_info.get('organized_questions', 0)}
-    - Subjects found: {', '.join(grid_info.get('subjects_detected', []))}
-    """)
+    # Subject-wise performance
+    st.subheader("📚 Subject-wise Performance")
 
-    # Confidence distribution chart
-    if total_questions > 0:
-        conf_data = {'High': high_confidence, 'Low': low_confidence, 'None': total_questions - high_confidence - low_confidence}
-        fig = px.pie(values=list(conf_data.values()), names=list(conf_data.keys()),
-                    title="Answer Confidence Distribution",
-                    color_discrete_map={'High': '#28a745', 'Low': '#ffc107', 'None': '#dc3545'})
-        st.plotly_chart(fig, use_container_width=True)
+    subject_data = []
+    for subject, scores in scoring_results['subject_scores'].items():
+        subject_data.append({
+            'Subject': subject,
+            'Correct': scores['correct'],
+            'Total': scores['total'],
+            'Score': f"{scores['score']}/20",
+            'Percentage': f"{scores['percentage']:.1f}%"
+        })
 
-    # Detailed answers
-    st.subheader("📝 Extracted Answers")
+    df_subjects = pd.DataFrame(subject_data)
+    st.dataframe(df_subjects, use_container_width=True)
+
+    # Performance chart
+    fig = px.bar(
+        df_subjects,
+        x='Subject',
+        y='Correct',
+        title='Subject-wise Correct Answers',
+        color='Correct',
+        color_continuous_scale='RdYlGn'
+    )
+    fig.update_layout(showlegend=False)
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Detailed question analysis
+    st.subheader("📝 Detailed Question Analysis")
 
     # Group by subject
     subjects = {}
-    for q_num, data in answers.items():
-        subject = data.get('subject', 'Unknown')
+    for q_num, details in scoring_results['question_details'].items():
+        subject = details['subject']
         if subject not in subjects:
             subjects[subject] = []
-        subjects[subject].append((int(q_num), data))
+        subjects[subject].append((int(q_num), details))
 
     # Display by subject
     for subject, questions in subjects.items():
-        with st.expander(f"📚 {subject} ({len(questions)} questions)", expanded=True):
+        with st.expander(f"📚 {subject} - Detailed Analysis", expanded=False):
             questions.sort(key=lambda x: x[0])
 
-            answer_data = []
-            for q_num, data in questions:
-                answer_data.append({
+            question_data = []
+            for q_num, details in questions:
+                status_icon = "✅" if details['status'] == 'correct' else "❌" if details['status'] == 'incorrect' else "⚪"
+
+                question_data.append({
                     'Question': q_num,
-                    'Answer': (data.get('answer') or 'None').upper(),
-                    'Confidence': data.get('confidence', 'none'),
-                    'Reason': data.get('reason', 'N/A').replace('_', ' ').title()
+                    'Status': f"{status_icon} {details['status'].title()}",
+                    'Correct Answer': details['correct_answer'],
+                    'Student Answer': details['student_answer'] or 'None',
+                    'Confidence': details['confidence'],
+                    'Score': f"{details['score']}/{details['marks']}"
                 })
 
-            if answer_data:
-                df = pd.DataFrame(answer_data)
-
-                # Color code by confidence
-                def color_confidence(val):
-                    if val == 'high':
-                        return 'background-color: #d4edda'
-                    elif val == 'low':
-                        return 'background-color: #fff3cd'
-                    else:
-                        return 'background-color: #f8d7da'
-
-                styled_df = df.style.applymap(color_confidence, subset=['Confidence'])
-                st.dataframe(styled_df, use_container_width=True)
+            df_questions = pd.DataFrame(question_data)
+            st.dataframe(df_questions, use_container_width=True)
 
     # Download results
-    if answers:
-        results_json = json.dumps(results, indent=2)
+    results_json = json.dumps({
+        'scoring': scoring_results,
+        'processing': processing_results
+    }, indent=2)
+
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"omr_scored_results_{timestamp}.json"
+
+    st.download_button(
+        label="📥 Download Detailed Results (JSON)",
+        data=results_json,
+        file_name=filename,
+        mime="application/json"
+    )
+
+def results_statistics_page():
+    st.header("📊 Results & Statistics")
+
+    if not st.session_state.processed_results:
+        st.info("📝 No results available. Process some OMR sheets first.")
+        return
+
+    # Overall statistics
+    st.subheader("📈 Overall Statistics")
+
+    total_sheets = len(st.session_state.processed_results)
+    total_students = len([r for r in st.session_state.processed_results if r['scoring']['student_info'].get('name')])
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Total Sheets Processed", total_sheets)
+    with col2:
+        st.metric("Students with Names", total_students)
+    with col3:
+        avg_score = np.mean([r['scoring']['percentage'] for r in st.session_state.processed_results])
+        st.metric("Average Score", f"{avg_score:.1f}%")
+
+    # Results table
+    st.subheader("📋 All Results")
+
+    results_data = []
+    for i, result in enumerate(st.session_state.processed_results):
+        scoring = result['scoring']
+        student_info = scoring['student_info']
+
+        results_data.append({
+            'Sl No.': i + 1,
+            'Student Name': student_info.get('name', 'N/A'),
+            'Student ID': student_info.get('id', 'N/A'),
+            'Set': scoring['set'],
+            'Score': f"{scoring['total_score']}/100",
+            'Percentage': f"{scoring['percentage']:.1f}%",
+            'Correct': scoring['summary']['correct'],
+            'Incorrect': scoring['summary']['incorrect'],
+            'Unanswered': scoring['summary']['unanswered'],
+            'Timestamp': scoring['timestamp']
+        })
+
+    df_results = pd.DataFrame(results_data)
+    st.dataframe(df_results, use_container_width=True)
+
+    # Export to Excel
+    if st.button("📊 Export Results to Excel"):
+        # Create detailed Excel export
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Summary sheet
+            df_results.to_excel(writer, sheet_name='Summary', index=False)
+
+            # Detailed results for each student
+            for i, result in enumerate(st.session_state.processed_results):
+                scoring = result['scoring']
+                student_name = scoring['student_info'].get('name', f'Student_{i+1}')
+
+                # Create detailed sheet for this student
+                detailed_data = []
+                for q_num, details in scoring['question_details'].items():
+                    detailed_data.append({
+                        'Question': q_num,
+                        'Subject': details['subject'],
+                        'Correct Answer': details['correct_answer'],
+                        'Student Answer': details['student_answer'] or 'None',
+                        'Status': details['status'],
+                        'Score': details['score'],
+                        'Confidence': details['confidence']
+                    })
+
+                df_detailed = pd.DataFrame(detailed_data)
+                sheet_name = f"{student_name[:20]}_{i+1}"  # Excel sheet name limit
+                df_detailed.to_excel(writer, sheet_name=sheet_name, index=False)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         st.download_button(
-            label="📥 Download Results (JSON)",
-            data=results_json,
-            file_name=f"omr_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-            mime="application/json"
+            label="📥 Download Excel Report",
+            data=output.getvalue(),
+            file_name=f"omr_results_report_{timestamp}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-def batch_processing(processor):
-    st.header("📊 Batch Processing")
-    st.info("Upload multiple OMR sheets for batch processing")
+    # Score distribution chart
+    if st.session_state.processed_results:
+        st.subheader("📊 Score Distribution")
+        scores = [r['scoring']['percentage'] for r in st.session_state.processed_results]
+
+        fig = px.histogram(
+            x=scores,
+            nbins=20,
+            title='Score Distribution',
+            labels={'x': 'Percentage Score', 'y': 'Number of Students'}
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+def batch_processing_page():
+    st.header("📤 Batch Processing")
+
+    if not st.session_state.answer_key_loader.answer_keys:
+        st.warning("⚠️ Please upload answer keys first using the 'Answer Key Manager' page.")
+        return
+
+    st.info("Upload multiple OMR sheets for batch processing with scoring")
+
+    # Batch settings
+    st.subheader("⚙️ Batch Settings")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        batch_set_letter = st.selectbox("Answer Set for All Images",
+                                       list(st.session_state.answer_key_loader.answer_keys.keys()))
+    with col2:
+        auto_name = st.checkbox("Auto-generate student names (Student_001, Student_002, etc.)")
 
     uploaded_files = st.file_uploader(
         "Upload Multiple OMR Sheets",
@@ -484,8 +912,8 @@ def batch_processing(processor):
         help="Upload multiple OMR sheet images"
     )
 
-    if uploaded_files and st.button("🚀 Process All Sheets", type="primary"):
-        results_summary = []
+    if uploaded_files and st.button("🚀 Process All Sheets with Scoring", type="primary"):
+        batch_results = []
         progress_bar = st.progress(0)
         status_text = st.empty()
 
@@ -493,136 +921,177 @@ def batch_processing(processor):
             status_text.text(f"Processing: {file.name} ({i+1}/{len(uploaded_files)})")
 
             try:
+                # Process image
                 image = Image.open(file)
                 image_array = np.array(image)
                 if len(image_array.shape) == 3:
                     image_array = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
 
-                results = processor.process_image(image_array)
+                processing_results = st.session_state.omr_processor.process_image(image_array)
 
-                # Extract summary
-                answers = results.get('extracted_answers', {})
-                summary = {
-                    'Filename': file.name,
-                    'Total Questions': len(answers),
-                    'Answered': sum(1 for ans in answers.values() if ans.get('answer')),
-                    'High Confidence': sum(1 for ans in answers.values() if ans.get('confidence') == 'high'),
-                    'Low Confidence': sum(1 for ans in answers.values() if ans.get('confidence') == 'low'),
-                    'Status': 'Success' if 'extracted_answers' in results else 'Failed'
-                }
-                results_summary.append(summary)
+                if 'error' not in processing_results:
+                    # Score results
+                    student_info = {
+                        'name': f"Student_{i+1:03d}" if auto_name else f"Student_from_{file.name}",
+                        'id': f"ID_{i+1:03d}",
+                        'image_name': file.name
+                    }
+
+                    scoring_results = st.session_state.scoring_engine.score_omr_sheet(
+                        processing_results['extracted_answers'],
+                        batch_set_letter,
+                        student_info
+                    )
+
+                    if 'error' not in scoring_results:
+                        # Store results
+                        combined_results = {
+                            'processing': processing_results,
+                            'scoring': scoring_results,
+                            'timestamp': datetime.now().isoformat()
+                        }
+
+                        st.session_state.processed_results.append(combined_results)
+
+                        batch_results.append({
+                            'Filename': file.name,
+                            'Student': student_info['name'],
+                            'Score': f"{scoring_results['total_score']}/100",
+                            'Percentage': f"{scoring_results['percentage']:.1f}%",
+                            'Correct': scoring_results['summary']['correct'],
+                            'Status': 'Success'
+                        })
+                    else:
+                        batch_results.append({
+                            'Filename': file.name,
+                            'Student': 'N/A',
+                            'Score': 'N/A',
+                            'Percentage': 'N/A',
+                            'Correct': 0,
+                            'Status': f'Scoring Error: {scoring_results["error"]}'
+                        })
+                else:
+                    batch_results.append({
+                        'Filename': file.name,
+                        'Student': 'N/A',
+                        'Score': 'N/A',
+                        'Percentage': 'N/A',
+                        'Correct': 0,
+                        'Status': f'Processing Error: {processing_results["error"]}'
+                    })
 
             except Exception as e:
-                results_summary.append({
+                batch_results.append({
                     'Filename': file.name,
-                    'Total Questions': 0,
-                    'Answered': 0,
-                    'High Confidence': 0,
-                    'Low Confidence': 0,
+                    'Student': 'N/A',
+                    'Score': 'N/A',
+                    'Percentage': 'N/A',
+                    'Correct': 0,
                     'Status': f'Error: {str(e)}'
                 })
 
             progress_bar.progress((i + 1) / len(uploaded_files))
 
-        status_text.text("Processing complete!")
+        status_text.text("Batch processing complete!")
 
         # Display batch results
-        if results_summary:
+        if batch_results:
             st.subheader("📊 Batch Processing Results")
-            df = pd.DataFrame(results_summary)
-            st.dataframe(df, use_container_width=True)
+            df_batch = pd.DataFrame(batch_results)
+            st.dataframe(df_batch, use_container_width=True)
 
             # Summary metrics
-            successful = df[df['Status'] == 'Success']
-            col1, col2, col3 = st.columns(3)
+            successful = df_batch[df_batch['Status'] == 'Success']
+            col1, col2, col3, col4 = st.columns(4)
+
             with col1:
-                st.metric("Total Files", len(df))
+                st.metric("Total Files", len(df_batch))
             with col2:
                 st.metric("Successful", len(successful))
             with col3:
-                st.metric("Success Rate", f"{(len(successful)/len(df)*100):.1f}%" if len(df) > 0 else "0%")
+                st.metric("Success Rate", f"{(len(successful)/len(df_batch)*100):.1f}%")
+            with col4:
+                if len(successful) > 0:
+                    avg_score = pd.to_numeric(successful['Percentage'].str.replace('%', ''), errors='coerce').mean()
+                    st.metric("Average Score", f"{avg_score:.1f}%")
 
 def about_page():
-    st.header("ℹ️ About OMR Evaluation System")
+    st.header("ℹ️ About OMR Evaluation & Scoring System")
 
     st.markdown("""
-    ## 🎯 Overview
-    This OMR (Optical Mark Recognition) system automatically processes bubble sheet answer sheets
-    using advanced computer vision techniques.
+    ## 🎯 Complete OMR Solution
+    This comprehensive OMR (Optical Mark Recognition) system provides end-to-end functionality for
+    processing bubble sheet answer sheets and automatically scoring them against answer keys.
 
     ## 🚀 Key Features
-    - **Multi-Parameter Detection**: Uses HoughCircles with 3 different parameter sets for maximum bubble detection
-    - **Column-Based Organization**: Organizes bubbles by subject columns using K-means clustering
-    - **Statistical Classification**: Advanced bubble analysis using mean, minimum intensity, and standard deviation
-    - **Confidence Scoring**: Three-level confidence system (High/Low/None) with detailed reasoning
-    - **Duplicate Removal**: Intelligent filtering of overlapping circle detections
-    - **Batch Processing**: Process multiple sheets simultaneously with progress tracking
-    - **Interactive Results**: Color-coded confidence levels and expandable subject sections
-    - **JSON Export**: Download structured results for further analysis
+
+    ### 📝 OMR Processing:
+    - **Multi-Parameter Detection**: HoughCircles with 3 different parameter sets
+    - **Column-Based Organization**: K-means clustering for spatial grid organization
+    - **Statistical Classification**: Advanced bubble analysis using intensity statistics
+    - **Confidence Scoring**: High/Low/None with detailed reasoning
+
+    ### 🎯 Answer Key & Scoring:
+    - **Excel Answer Key Support**: Load answer keys from Excel files (Set A, Set B, etc.)
+    - **Automatic Scoring**: Compare student answers against correct answers
+    - **Subject-wise Analysis**: Detailed performance breakdown by subject
+    - **Grade Calculation**: Automatic percentage and grade assignment
+
+    ### 📊 Results Management:
+    - **Student Information**: Track student names, IDs, and timestamps
+    - **Detailed Analytics**: Question-by-question analysis with confidence levels
+    - **Batch Processing**: Process multiple sheets simultaneously
+    - **Excel Export**: Comprehensive reporting in Excel format
+    - **Statistics Dashboard**: Overall performance metrics and charts
 
     ## 🛠️ Technical Implementation
-    - **OpenCV**: HoughCircles detection with Gaussian blur preprocessing
-    - **Scikit-learn**: K-means clustering for spatial grid organization
-    - **NumPy**: Statistical analysis and array operations
+    - **OpenCV**: Advanced image processing and circle detection
+    - **Scikit-learn**: Machine learning for spatial clustering
+    - **Pandas**: Data manipulation and Excel file handling
     - **Plotly**: Interactive visualizations and charts
-    - **Streamlit**: Responsive web interface with caching
+    - **Streamlit**: Professional web interface
 
     ## 📊 Expected Performance
-    - **Processing Speed**: 3-8 seconds per sheet (depending on image size)
+    - **Processing Speed**: 3-8 seconds per sheet
     - **Grid Format**: 5 columns × 20 rows × 4 options (A,B,C,D)
     - **Subjects Supported**: PYTHON, EDA, SQL, POWER BI, ADV STATS
-    - **Accuracy**: 85-95% for high-quality images with proper bubble filling
+    - **Accuracy**: 85-95% for high-quality images
 
-    ## 🎓 Image Quality Guidelines
+    ## 🎓 Usage Workflow
 
-    ### ✅ Best Practices:
-    1. **Resolution**: 1200x1000+ pixels recommended
-    2. **Lighting**: Even, diffused lighting without shadows
-    3. **Bubble Filling**: Complete filling with dark pencil/pen
-    4. **Sheet Condition**: Flat, uncrumpled, properly aligned
-    5. **Format**: JPG, PNG with good compression quality
+    ### 1. **Setup Answer Keys** 📋
+    - Upload Excel file with answer keys
+    - Support for multiple sets (A, B, etc.)
+    - Automatic validation and loading
 
-    ### ❌ Common Issues:
-    - Partial bubble filling or light marking
-    - Uneven lighting or shadows
-    - Blurry or low-resolution images
-    - Crumpled or damaged sheets
-    - Incorrect grid alignment
+    ### 2. **Process OMR Sheets** 🔍
+    - Upload individual or multiple OMR images
+    - Enter student information
+    - Select appropriate answer set
+    - Automatic processing and scoring
 
-    ## 🔧 Algorithm Details
+    ### 3. **View Results** 📊
+    - Detailed student performance analysis
+    - Subject-wise breakdowns
+    - Confidence levels and error analysis
+    - Statistical summaries
 
-    ### 1. Bubble Detection:
-    ```
-    - Convert to grayscale
-    - Apply Gaussian blur (9x9 kernel)
-    - Run HoughCircles with 3 parameter sets
-    - Remove duplicate detections
-    - Filter by size and shape
-    ```
+    ### 4. **Export Reports** 📥
+    - Excel format with multiple sheets
+    - JSON format for integration
+    - Comprehensive student records
 
-    ### 2. Grid Organization:
-    ```
-    - Extract bubble coordinates
-    - K-means clustering on X-coordinates (columns)
-    - Sort bubbles by Y-coordinates within columns
-    - Group every 4 bubbles as one question
-    - Calculate question numbers: col_idx * 20 + row_idx + 1
-    ```
+    ## 📋 Excel Answer Key Format
 
-    ### 3. Answer Classification:
-    ```
-    - Create circular mask for each bubble
-    - Calculate statistical measures:
-      * Mean intensity
-      * Minimum intensity
-      * Standard deviation
-    - Apply thresholds: mean < 120, min < 100, std < 40
-    - Compare against image background
-    ```
+    Your Excel file should contain:
+    - **Sheet Names**: 'Set - A', 'Set - B', etc.
+    - **Columns**: Subject-wise answer columns
+    - **Answers**: A, B, C, or D for each question
+    - **Structure**: 20 questions per subject
 
     ---
 
-    **Built for educational institutions and assessment processing** 📚
+    **Perfect for educational institutions, training centers, and assessment organizations** 🎓📚
     """)
 
 if __name__ == "__main__":

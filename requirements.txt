@@ -5,3 +5,5 @@ pillow
 opencv-python-headless
 scikit-learn
 plotly
+openpyxl
+xlsxwriter
